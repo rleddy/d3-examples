@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+    
+    // d3 example by Richard Leddy (c) 2016
+    
+    <style>
+        
+        path {
+            pointer-events: all;
+            fill: none;
+            stroke: #666;
+            stroke-opacity: 0.2;
+        }
+    
+        .active circle {
+            stroke: #000;
+            stroke-width: 2px;
+        }
+        
+        html, body { margin:0; padding:0; overflow:hidden }
+    
+    </style>
+    <svg id="mainsvg" width="0" height="0" ></svg>
+    <script src="./js/d3.v4.js"></script>
+    <script>
+
+
+/*  --  */
+
+    function updateRemove(pSvg,data) {
+        var ms = pSvg.selectAll("g").data(data, function(d) { return(d.iam); } );
+        ms.exit().remove();
+    }
+
+    
+    var svg = d3.select("#mainsvg");
+    
+    var w = window,
+    d = document,
+    e = d.documentElement,
+    g = d.getElementsByTagName('body')[0],
+    wx = w.innerWidth || e.clientWidth || g.clientWidth,
+    wy = w.innerHeight|| e.clientHeight|| g.clientHeight;
+    
+    svg.attr("width",window.screen.width);
+    svg.attr("height",window.screen.height);
+    
+    
+    var winCount = 0;
+    
+    
+    var width = wx,
+        height = wy,
+        radius = 200;
+
+    var rectsAll = d3.range(20).map(function() {
+                                       return {
+                                           iam: winCount++,
+                                           x: Math.round(Math.random() * (width - radius * 2) + radius),
+                                           y: Math.round(Math.random() * (height - radius * 2) + radius)
+                                       };
+                                   });
+                                   
+    var color = d3.scaleOrdinal()
+                    .range(d3.schemeCategory20);
+                    
+
+    function addWindows(pSvg) {
+            
+    
+            var rectangle = pSvg.selectAll("g")
+                    .data(rectsAll, function(d) { return(d.iam); } )
+                    .enter().append("g")
+                    .attr("class",".windowBox")
+                    .call(d3.drag()
+                            .on("start", dragstarted)
+                            .on("drag", dragged)
+                            .on("end", dragended));
+                            
+            rectangle.attr("deltaX",function(d) { return(0); })
+                        .attr("deltaY",function(d) { return(0); });
+
+            rectangle.append("rect")
+                        .attr("x", function(d) { return d.x; })
+                        .attr("y", function(d) { return d.y; })
+                        .attr("height", radius)
+                        .attr("width", 2*radius)
+                        .attr("cursor", "move")
+                        .style("fill", function(d, i) { return color(i); });
+                        
+                        
+            var noDrag = d3.drag()
+                        .on('start', function(d){
+                                d3.select(this.parentNode).raise().classed("active", true);
+                            })
+                        .on('drag', function(d,i){
+                            })
+                        .on("end", function(d,i){
+                                d3.select(this.parentNode).classed("active", false);
+                            });
+
+
+            rectangle.append("rect")
+                        .attr("x", function(d) { return d.x+1; })
+                        .attr("y", function(d) { return d.y+20; })
+                        .attr("height", radius-22)
+                        .attr("width", 2*radius-2)
+                        .style("fill", function(d, i) { return "#FAFACC"; })
+                        .call(noDrag);
+
+            var dragBox = d3.drag()
+                        .on('start', function(d){
+                                 d3.event.sourceEvent.stopPropagation();
+                             })
+                        .on('drag', function(d,i){
+
+                                var resizeBox = d3.select(this);
+                                var mx = +resizeBox.attr("x");
+                                var my = +resizeBox.attr("y");
+                            
+
+                                var topLimit = d.y + 20;
+                                var leftLimit = d.x + 20;
+
+                                mx += d3.event.dx;
+                                my += d3.event.dy;
+                            
+                                if ( (mx > leftLimit) && (my > topLimit) ) {
+                            
+                                    resizeBox.attr('x', mx).attr('y', my);
+                            
+                                    var height = my - d.y;
+                                    var width = mx - d.x;
+
+                                    d3.select(this.previousElementSibling)
+                                                    .attr("x", mx);
+
+                                    d3.select(this.previousElementSibling.previousElementSibling)
+                                                    .attr("width", width + 10 - 2)
+                                                    .attr("height", height + 10 - 22);
+                            
+                                    d3.select(this.previousElementSibling.previousElementSibling.previousElementSibling)
+                                                    .attr("width", width + 10)
+                                                    .attr("height", height + 10);
+                            
+                                }
+
+                        });
+
+
+            rectangle.append("rect")
+                        .attr("x", function(d) { return d.x + 2*radius - 10; })
+                        .attr("y", function(d) { return d.y; })
+                        .attr("height", 10)
+                        .attr("width", 10)
+                        .attr("fill", "navy" )
+                        .attr("cursor","pointer")
+                        .on("click", function(d,i) {
+
+                            var j = rectsAll.findIndex(function(obj){ var res = (obj.iam === d.iam); return res; });
+            
+                            rectsAll.splice(j,1);
+
+                            updateRemove(pSvg,rectsAll);
+                            
+                            var rect = d3.select(this);
+                            var cc = rect.attr("fill");
+                            cc = (cc == "navy" )? "green" : "navy";
+                            rect.attr("fill",cc);
+                        });
+
+
+            rectangle.append("rect")
+                         .attr("x", function(d) { return d.x + 2*radius - 10; })
+                         .attr("y", function(d) { return d.y + radius - 10; })
+                         .attr("height", 10)
+                         .attr("width", 10)
+                         .style("fill", function(d, i) { return "#993300"; })
+                         .attr("cursor", "nw-resize")
+                         .call(dragBox);
+
+    }
+
+ 
+ 
+    function dragstarted(d) {
+        var dltX =  1*(d3.select(this).attr("deltaX"));
+        var dltY =  1*(d3.select(this).attr("deltaY"));
+        d3.select(this).attr("deltaX",d3.event.x - dltX);
+        d3.select(this).attr("deltaY",d3.event.y - dltY);
+        d3.select(this).raise().classed("active", true);
+    }
+
+    function dragged(d) {
+        
+        var dltX =  1*(d3.select(this).attr("deltaX"));
+        var dltY =  1*(d3.select(this).attr("deltaY"));
+        
+        d3.select(this).attr("transform", function(d,i){
+                                    return "translate(" + [ d3.event.x - dltX, d3.event.y - dltY] + ")"
+                             });
+
+    }
+    
+    function dragended(d, i) {
+        var dltX =  1*(d3.select(this).attr("deltaX"));
+        var dltY =  1*(d3.select(this).attr("deltaY"));
+        d3.select(this).attr("deltaX",d3.event.x - dltX);
+        d3.select(this).attr("deltaY",d3.event.y - dltY);
+        d3.select(this).classed("active", false);
+    }
+    
+    function renderCell(d) {
+        return d == null ? null : "M" + d.join("L") + "Z";
+    }
+    
+
+    svg.append("rect")
+                    .attr("x",5)
+                    .attr("y",5)
+                    .attr("height",20)
+                    .attr("width",20).attr("fill","orange")
+                    .on("click", function() {
+
+                        var rect = d3.select(this);
+                        var cc = rect.attr("fill");
+                        cc =  cc == "orange" ? "blue" : "orange";
+                        rect.attr("fill",cc);
+                        
+                        var newDatum =  {
+                                            iam: winCount++,
+                                            x: Math.round(Math.random() * (width - radius * 2) + radius),
+                                            y: Math.round(Math.random() * (height - radius * 2) + radius)
+                                        };
+                        
+                        
+                        rectsAll.push(newDatum);
+                        addWindows(svg);
+                    });
+
+
+    addWindows(svg);
+    
+    
+    
+    
+</script>
+
+
